@@ -51,22 +51,3 @@ void main() {
     writeln("Response: ", response);
 }
 ```
-
-#### Contributing
-
-Contributions are welcome! Please fork the repository and submit a pull request.
-
-#### Project Structure
-
-project-root/
-│
-├── dub.json           # Project configuration file
-├── source/            # Source directory
-│   ├── app.d          # Main application file
-│   ├── fetcher.d      # HTTP request fetcher module
-│   ├── utils.d        # Utility functions (optional)
-│
-├── tests/             # Directory for unit tests
-│   ├── fetcher_tests.d # Tests for the HTTP request fetcher
-│
-└── README.md          # Project documentation
