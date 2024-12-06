@@ -1,0 +1,9 @@
+{
+    "name": "http-fetcher",
+    "description": "A simple HTTP request fetcher",
+    "dependencies": {
+        "request": "~1.0"
+    },
+    "sourcePaths": ["source"],
+    "importPaths": ["source"]
+}
