@@ -1,74 +1,68 @@
-module fetcher;
-
-import requests;
-import std.datetime;
-import std.stdio;
+import vibe.http.client : HTTPClient;
+import vibe.http.common : HTTPMethod;
+import vibe.core.stream : InputStream;
+import std.array : appender, Appender;
+import std.utf : validate;
+import std.stdio : writeln;
 
 struct FetchOptions {
-    string[string] headers;
-    string[string] queryParams;
-    string body;
-    Duration timeout;
+    string[string] headers;      // Optional headers
+    string[string] queryParams; // Optional query parameters
 }
 
 struct AuthOptions {
-    string apiKey;
-    string username;
-    string password;
+    string apiKey; // Optional API key for authorization
 }
 
-struct PerformanceMetrics {
-    Duration requestDuration;
-}
+/// Fetches data from a URL synchronously.
+string fetch(string url, FetchOptions options, AuthOptions auth = AuthOptions.init) {
+    auto client = new HTTPClient();
+    auto responseBody = appender!string();
 
-void log(string message) {
-    writeln("[LOG]: ", message);
-}
+    // Perform the HTTP request
+    client.request(url, (scope req) {
+        req.method = HTTPMethod.GET;
+        req.headers["Content-Type"] = "application/json";
 
-string fetch(string url, FetchOptions options, AuthOptions auth = AuthOptions.init, int retryCount = 3) {
-    auto client = HTTP();
-    client.addRequestHeader("Authorization", "Bearer " ~ auth.apiKey);
-    clinet.addRequestHeader("Content-Type", "application/json");
+        // Add authorization if provided
+        if (auth.apiKey.length > 0) {
+            req.headers["Authorization"] = "Bearer " ~ auth.apiKey;
+        }
 
-    foreach (key, value; options.headers) {
-        client.addRequestHeader(key, value);
-    }
-
-    foreach (key, value; options.queryParams) {
-        client.addQueryParameter(key, value);
-    }
-
-    auto response = client.get(url);
-
-    if (response.code == 200) {
-        log("Recieved successful response");
-        return response.responseBody;
-    } else {
-        return "Error: Recieved status code " ~ response.code.to!string;
-    }
-}
-
-Task!string asyncFetch(string url, FetchOptions options, AuthOptions auth = AuthOptions.init) {
-    return task!string({
-        return fetch(url, options, auth);
+        // Add additional headers
+        foreach (key, value; options.headers) {
+            req.headers[key] = value;
+        }
+    }, (scope res) {
+        // Read the response body
+        auto bodyReader = res.bodyReader;
+        ubyte[] buffer = new ubyte[1024];
+        while (!bodyReader.empty) {
+            auto bytesRead = bodyReader.read(buffer);
+            responseBody.put(cast(string) buffer[0 .. bytesRead]);
+        }
     });
+
+    return responseBody.data.validate; // Return as a validated UTF-8 string
 }
 
-string parseJson(string response) {
-    try {
-        auto json = parseJSON(response);
-        return json.toString();
-    } catch (Exception e) {
-        log("Error parsing JSON: " ~ e.msg);
-        return "";
-    }
+/// Fetches data from a URL asynchronously.
+void asyncFetch(string url, FetchOptions options, AuthOptions auth = AuthOptions.init) {
+    import core.thread;
+    auto thread = new Thread({
+        auto response = fetch(url, options, auth);
+        writeln("Response: ", response);
+    });
+    thread.start();
 }
 
-PerformanceMetrics fetchWithMetrics(string url, FetchOptions options, AuthOptions auth = AuthOptions.init) {
-    auto start = Clock.currTime();
-    string response = fetch(url, options, auth);
-    auto end = Clock.currTime();
-    Duration duration = end - start;
+/// Main function to demonstrate usage.
+void main() {
+    FetchOptions options;
+    options.headers["Accept"] = "application/json";
 
-    return PerformanceMetrics(duration);
+    AuthOptions auth;
+    auth.apiKey = "your-api-key";
+
+    asyncFetch("https://api.example.com/endpoint", options, auth);
 }
